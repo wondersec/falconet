@@ -1,6 +1,7 @@
 #!/bin/bash
 # curl -sSL https://github.com/wondersec/falconet/releases/latest/download/quick_start.sh | sh
 ################################
+INSTALL_PATH=$(cd $(dirname $0); pwd)
 
 function color_log() 
 {
@@ -30,6 +31,21 @@ function prepare_check()
   if [ $memTotal -lt 7500000 ]; then
     echo -e "[\033[31m ERROR \033[0m] Memory less than 8G ."
     exit 1
+  fi
+  # minStorage=500
+  storageStr=`df -lPBG ${INSTALL_PATH} | sed -n '2,$'p | awk '{print $4}'`
+  storageSpace=$((${storage_str%G*}))
+  minStorage=10
+  if [ $storageSpace -lt $minStorage ]; then
+    echo "Your available disk space is less than ${minStorage}G, select another install path is better."
+    read -n1 -e -p "Still use current path [${INSTALL_PATH}] to continue installation?[y/N](y)" answer
+    if [ "X${answer,,}" == "Xn" ]; then
+      df -lPBG | awk '{sub(/G$/,"",$4);if ($4 - minStorage > 0) {sub(/$/,"G",$4);print $0}}' minStorage=$minStorage
+      read -e -p "Please specify a partition with sufficient space(must be an absolute path) for install: " INSTALL_PATH
+      if [[ -z "${INSTALL_PATH}" && "${INSTALL_PATH}" =~ \.\/ ]]; then 
+        echo "Install path must be an absolute path, try to execute the script again." && exit 1
+      fi
+    fi
   fi
 }
 
@@ -146,18 +162,19 @@ function extract_package()
 
 function install() 
 {
-  cd /opt/
   # SMC_Version=$(curl -s 'https://api.github.com/repos/wondersec/falconet/releases/latest' | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
   # sed -i "s/VERSION=.*/VERSION=$SMC_Version/g" /opt/falconet-$Version/version.ini
-  # ./scripts/install.sh --path=/home/setup
-  install_path=/data/falconet
-  if [ ! -d ${install_path} ]; then
-    mkdir -p ${install_path}
+  # ./scripts/install.sh --path=/data/falconet
+  INSTALL_PATH=${INSTALL_PATH}/falconet
+  if [ ! -d ${INSTALL_PATH} ]; then
+    mkdir -p ${INSTALL_PATH}
   fi
-  script_path=${install_path}/scripts
+
+  cd /opt/
+  script_path=${INSTALL_PATH}/scripts
   package_name=falconet-server.tar.xz
   # download server
-  download_package ${package_name} ${install_path}
+  download_package ${package_name} ${INSTALL_PATH}
   version_file=$script_path/config/version.ini
   if [ -f $version_file ]; then
     sed '/^#/d' $version_file | sed 's/=/\n=/g' | sed '/^[^=#]/s/[.]/_/g' | sed '/^[^#]/{N;s/\n//}' > $script_path/version.ini
@@ -168,24 +185,26 @@ function install()
     exit 1
   fi
   # download java
-  download_package falconet-java.tar.xz ${install_path}
+  download_package falconet-java.tar.xz ${INSTALL_PATH}
   # download db
   if [ ${db_instances} -gt 0 ]; then
-    download_package falconet-db.tar.xz ${install_path}
+    download_package falconet-db.tar.xz ${INSTALL_PATH}
   fi
   # download es
   if [ ${es_instances} -gt 0 ]; then
-    download_package falconet-es.tar.xz ${install_path}
+    download_package falconet-es.tar.xz ${INSTALL_PATH}
   fi
   # download zk
   if [ ${zk_instances} -gt 0 ]; then
-    download_package falconet-zk.tar.xz ${install_path}
+    download_package falconet-zk.tar.xz ${INSTALL_PATH}
   fi
   # download ck
   if [ ${ck_instances} -gt 0 ]; then
-    download_clickhouse ${install_path}
+    download_clickhouse ${INSTALL_PATH}
   fi
-  $script_path/install.sh -q --path=${install_path}
+  
+  $script_path/install.sh -q --path=${INSTALL_PATH} && rm -rf $script_path
+  
 }
 
 function main(){
