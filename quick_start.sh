@@ -1,6 +1,6 @@
 #!/bin/bash
 # curl -sSL https://github.com/wondersec/falconet/releases/latest/download/quick_start.sh | sh
-################################
+################################################################################################
 INSTALL_PATH=$(cd $(dirname $0); pwd)
 
 function color_log() 
@@ -200,7 +200,7 @@ function install()
   fi
   
   $script_path/install.sh -q --path=${INSTALL_PATH} && rm -rf $script_path
-  # rm -rf /opt/falconet
+  rm -rf /opt/falconet
 }
 
 function main(){
