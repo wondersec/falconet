@@ -34,18 +34,12 @@ function prepare_check()
   fi
   # minStorage=500
   storageStr=`df -lPBG ${INSTALL_PATH} | sed -n '2,$'p | awk '{print $4}'`
-  storageSpace=$((${storage_str%G*}))
+  storageSpace=$((${storageStr%G*}))
   minStorage=10
   if [ $storageSpace -lt $minStorage ]; then
-    echo "Your available disk space is less than ${minStorage}G, select another install path is better."
-    read -n1 -e -p "Still use current path [${INSTALL_PATH}] to continue installation?[y/N](y)" answer
-    if [ "X${answer,,}" == "Xn" ]; then
-      df -lPBG | awk '{sub(/G$/,"",$4);if ($4 - minStorage > 0) {sub(/$/,"G",$4);print $0}}' minStorage=$minStorage
-      read -e -p "Please specify a partition with sufficient space(must be an absolute path) for install: " INSTALL_PATH
-      if [[ -z "${INSTALL_PATH}" && "${INSTALL_PATH}" =~ \.\/ ]]; then 
-        echo "Install path must be an absolute path, try to execute the script again." && exit 1
-      fi
-    fi
+    echo "Your [${INSTALL_PATH}] directory available disk space is less than ${minStorage}G, select another install path is better."
+    df -lPBG | awk '{sub(/G$/,"",$4);if ($4 - minStorage > 0) {sub(/$/,"G",$4);print $0}}' minStorage=$minStorage
+    echo -e "[\033[31m ERROR \033[0m] Please change another directory or try to execute the script again." && exit 1
   fi
 }
 
@@ -126,15 +120,16 @@ function download_clickhouse()
         echo -e "[\033[31m ERROR \033[0m] Failed to extract the ${rpm_name} package. Please try to execute the installation command again."
         exit 1
       }
-      rm -rf ${rpm_name}
+      #rm -rf ${rpm_name}
     fi
   done
   mkdir -p $clickhouse_path
   if [[ -d "usr/bin/" ]]; then
-    /usr/bin/mv -f usr/bin $clickhouse_path/bin
-    /usr/bin/mv -f usr/share $clickhouse_path/share
-    /usr/bin/mv -f etc/clickhouse-server $clickhouse_path/config
-    /usr/bin/mv -f etc/clickhouse-client/config.xml $clickhouse_path/config/client.xml
+    /usr/bin/cp -rfp usr/bin $clickhouse_path/bin
+    /usr/bin/cp -rfp usr/share $clickhouse_path/share
+    /usr/bin/cp -rfp etc/clickhouse-server $clickhouse_path/config
+    /usr/bin/cp -rfp etc/clickhouse-client/config.xml $clickhouse_path/config/client.xml
+    /usr/bin/rm -rf etc lib usr
   fi
 }
 
@@ -152,7 +147,7 @@ function extract_package()
   else
     tar xf $1 -C $2 && illegal=$?
   fi
-  rm -f $1
+  # rm -f $1
   if [ $illegal != 0 ];then
     echo -e "[\033[31m ERROR \033[0m] Failed to extract the $1 package. Please try to execute the installation command again."
     exit 1
@@ -170,7 +165,8 @@ function install()
     mkdir -p ${INSTALL_PATH}
   fi
 
-  cd /opt/
+  [ ! -d /opt/falconet ] && mkdir -p /opt/falconet 
+  cd /opt/falconet
   script_path=${INSTALL_PATH}/scripts
   package_name=falconet-server.tar.xz
   # download server
@@ -204,7 +200,7 @@ function install()
   fi
   
   $script_path/install.sh -q --path=${INSTALL_PATH} && rm -rf $script_path
-  
+  # rm -rf /opt/falconet
 }
 
 function main(){
